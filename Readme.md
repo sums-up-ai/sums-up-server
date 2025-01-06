@@ -28,3 +28,12 @@ pip install -r requirements.txt
 ```bash
 uvicorn main:app --reload
 ```
+
+6. pytest
+```bash
+pytest
+```
+if path error
+```bash
+set PYTHONPATH=C:\Users\Janithpm\Desktop\sums-up-ai\sums-up-server
+```
