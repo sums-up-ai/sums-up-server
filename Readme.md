@@ -12,5 +12,15 @@ conda activate sums-up-server
 
 ## Run the server with the following command:
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload
+```
+or
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## Export the environment
+Please run the following command if you install any new modules
+```bash
+conda env export > environment.yaml
 ```

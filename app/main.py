@@ -1,29 +1,22 @@
 from fastapi import FastAPI
-from app.api import video
+from app.core.config import settings
+from app.routes import register_routes
 
-app = FastAPI()
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title=settings.PROJECT_NAME,
+        version=settings.APP_VERSION,
+        docs_url=settings.DOCS_URL,
+        redoc_url=settings.REDOC_URL,
+    )
+    
+    register_routes(app)
+    
+    return app
 
-app.include_router(video.router)
+app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
-
-
-# from fastapi import FastAPI, WebSocket, HTTPException
-
-# app = FastAPI()
-
-# @app.get("/items/{item_id}")
-# async def read_item(item_id: int):
-#     if item_id == 0:
-#         raise HTTPException(status_code=404, detail="Item not found")
-#     return {"item_id": item_id, "name": "Item name"}
-
-# @app.websocket("/ws")
-# async def websocket_endpoint(websocket: WebSocket):
-#     await websocket.accept()
-#     while True:
-#         data = await websocket.receive_text()
-#         await websocket.send_text(f"Message received: {data}")
+    uvicorn.run("app.main:app", host=settings.SERVER_HOST, port=settings.SERVER_PORT, reload=settings.AUTO_RELOAD)
