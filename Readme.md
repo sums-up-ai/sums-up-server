@@ -1,39 +1,16 @@
-## How to run this script
+## Create the Environment from the YAML File
+To create an environment from the environment.yaml file, you can run:
 
-1. Install virtualenv using the following command:
 ```bash
-pip install virtualenv
+conda env create -f environment.yaml
+```
+Then, activate the new environment:
+
+```bash
+conda activate sums-up-server
 ```
 
-2. Create a virtual environment using the following command:
-```bash
-virtualenv venv
-```
-or
-```bash
-python -m virtualenv venv
-```
-
-3. activate the virtual environment using the following command:
-```bash
-.\venv\Scripts\activate
-```
-
-4. Install the required packages using the following command:
-```bash
-pip install -r requirements.txt
-```
-
-5. Run the server with the following command:
+## Run the server with the following command:
 ```bash
 uvicorn main:app --reload
-```
-
-6. pytest
-```bash
-pytest
-```
-if path error
-```bash
-set PYTHONPATH=C:\Users\Janithpm\Desktop\sums-up-ai\sums-up-server
 ```
