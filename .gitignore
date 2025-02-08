@@ -83,3 +83,4 @@ cython_debug/
 .ruff_cache/
 
 pyrightconfig.json
+*/**/summ-model/
