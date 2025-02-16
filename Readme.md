@@ -17,6 +17,8 @@ uvicorn app.main:app --reload
 or
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 127.0.0.4 --port 8001
+
 ```
 
 ## Export the environment

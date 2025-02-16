@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.api.system.routes import system_router
 from app.api.video.routes import video_router
-from app.api.summarize.routes import summarize_router
+from app.api.summarize import summarize_router
 
 def register_routes(app: FastAPI):
     app.include_router(system_router, prefix="/api/system")

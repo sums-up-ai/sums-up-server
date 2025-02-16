@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.core.config import settings
+from app.core import settings
 from app.routes import register_routes
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,14 +19,13 @@ app = create_app()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3001"],  # Add your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],  # Explicitly specify methods
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["Content-Type", "Authorization"]
 )
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("app.main:app", host=settings.SERVER_HOST, port=settings.SERVER_PORT, reload=settings.AUTO_RELOAD)
