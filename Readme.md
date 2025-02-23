@@ -26,3 +26,7 @@ Please run the following command if you install any new modules
 ```bash
 conda env export > environment.yaml
 ```
+
+## Run the test
+```bash
+pytest test_file.py -k test_fn -v

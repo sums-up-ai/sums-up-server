@@ -124,6 +124,7 @@ dependencies:
   - python-xxhash=3.5.0=py39h827c3e9_0
   - python_abi=3.9=2_cp39
   - pytorch=2.5.1=cpu_mkl_py39hc9ee3b7_102
+  - pytube=15.0.0=pyhd8ed1ab_1
   - pytz=2024.1=py39haa95532_0
   - pyyaml=6.0.2=py39h827c3e9_0
   - re2=2022.04.01=hd77b12b_0
@@ -169,4 +170,6 @@ dependencies:
   - zipp=3.21.0=py39haa95532_0
   - zlib=1.2.13=h8cc25b3_1
   - zstd=1.5.6=h8880b57_0
-prefix: C:\Users\Janithpm\.conda\envs\sums-up-server
+  - pip:
+      - backports-datetime-fromisoformat==2.0.3
+      - m3u8==6.0.0
