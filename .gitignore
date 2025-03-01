@@ -84,3 +84,4 @@ cython_debug/
 
 pyrightconfig.json
 */**/summ-model/
+/credentials
