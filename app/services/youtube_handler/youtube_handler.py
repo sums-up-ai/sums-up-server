@@ -17,7 +17,7 @@ class YouTubeAudioProcessor:
         self.chunk_duration = 30  # Seconds
         self.max_retries = 5
         self.base_backoff = 1.5
-        self.live_refresh_interval = 10  # Manifest refresh interval for live streams
+        self.live_refresh_interval = 20  # Manifest refresh interval for live streams
 
     async def process_content(self, video_id: str, start_time = None) -> AsyncGenerator[AudioSegment, None]:
         """Main entry point for both live and VOD content processing"""
@@ -31,9 +31,8 @@ class YouTubeAudioProcessor:
             async for chunk in self._handle_vod(video_id):
                 yield chunk
 
-    async def _check_live_status(self, video_id: str) -> bool:
-        """Improved live status detection with better error handling"""
-        
+    async def _get_video_metadata(self, video_id: str) -> dict:
+        """Get video title, channel, duration, etc."""        
         ydl_opts = {
             "quiet": True,
             "extract_flat": True,
@@ -44,13 +43,24 @@ class YouTubeAudioProcessor:
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(f"https://youtu.be/{video_id}", download=False)
-                    return info.get("is_live", False)
+                    return {
+                        "title": info.get("title", ""),
+                        "channel": info.get("channel", ""),
+                        "duration": info.get("duration", 0),
+                        "is_live": info.get("is_live", False),
+                        "language": info.get("language", "NA")
+                    }
            
             except yt_dlp.DownloadError as e:
                 logger.warning(f"Live check attempt {attempt+1} failed: {str(e)}")
                 await asyncio.sleep(self.base_backoff ** attempt)
         
         raise RuntimeError(f"Failed to determine live status after {self.max_retries} attempts")
+
+    async def _check_live_status(self, video_id: str) -> bool:
+        """Check if video is live or VOD"""
+        metadata = await self._get_video_metadata(video_id)
+        return metadata.get("is_live", False)
 
     async def _handle_live_stream(self, video_id: str, join_time) -> AsyncGenerator[AudioSegment, None]:
         """Enhanced live stream handling with dynamic manifest updates"""
@@ -195,22 +205,3 @@ class YouTubeAudioProcessor:
         """Unified retry handler with exponential backoff"""
         logger.warning(f"Retrying {context}...")
         await asyncio.sleep(self.base_backoff)
-
-
-
-if __name__ == "__main__":
-    async def test_check_live_status():
-        processor = YouTubeAudioProcessor()
-        print(await processor._check_live_status("9628jILczok")) # VOD
-        print(await processor._check_live_status("eFC-sPbI41I")) # Live
-
-    # async def test_():
-    #     processor = YouTubeAudioProcessor()
-    #     async for chunk in processor.process_content("9628jILczok"):
-    #         print(f"Received {len(chunk)}ms audio chunk")
-    #         print("Processing...")
-    #         await asyncio.sleep(1)
-    #         print("Done")
-
-    asyncio.run(test_check_live_status())
-
