@@ -1,0 +1,1 @@
+from .sinhala_transcriber import SinhalaTranscriber

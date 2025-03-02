@@ -2,8 +2,18 @@ import asyncio
 import torch
 from fastapi import APIRouter, HTTPException, Depends, status
 from sse_starlette.sse import EventSourceResponse
-from app.api.summarize import SummarizeRequest, generate_summary
+from app.api.summarize import SummarizeRequest, generate_summary, generate_trascript
 from app.services.models import get_model_and_tokenizer, get_request_semaphore
+import logging
+from pydub import AudioSegment
+from typing import Dict, List
+import os
+
+
+
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 summarize_router = APIRouter(tags=['summarize'])
@@ -64,3 +74,32 @@ async def stream_summary(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"An error occurred during summarization: {str(e)}",
             )
+
+
+@summarize_router.post("/trascript/stream/{video_id}")
+async def stream_transcript(video_id: str):
+
+    try:
+        return EventSourceResponse(
+            generate_trascript(video_id=video_id),
+            media_type="text/event-stream",
+
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
+
+    except torch.cuda.OutOfMemoryError:
+        raise HTTPException(
+            status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+            detail="Server resources overloaded. Please try again later.",
+        )
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during summarization: {str(e)}",
+        )

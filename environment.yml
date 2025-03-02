@@ -1,0 +1,24 @@
+name: sums-up-server
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pytorch
+  - pandas
+  - numpy
+  - fastapi
+  - uvicorn
+  - transformers
+  - huggingface_hub
+  - pydantic
+  - pydantic-settings
+  - python-dotenv
+  - yt-dlp
+  - pytube
+  - ffmpeg
+  - ffmpeg-python
+  - pip
+  - pydub
+  - google-cloud-speech
+  - sse-starlette
