@@ -24,6 +24,9 @@ uvicorn app.main:app --host 127.0.0.4 --port 8001
 ## Export the environment
 Please run the following command if you install any new modules
 ```bash
+conda env export --from-history > environment.yaml
+
+(with OS specific packages)
 conda env export > environment.yaml
 ```
 
