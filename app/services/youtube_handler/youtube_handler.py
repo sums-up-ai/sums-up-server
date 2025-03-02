@@ -6,7 +6,7 @@ import aiohttp
 import asyncio
 import logging
 from typing import Optional, AsyncGenerator
-from m3u8 import M3U8
+
 from pydub import AudioSegment
 import yt_dlp
 
@@ -25,8 +25,7 @@ class YouTubeAudioProcessor:
         is_live = await self._check_live_status(video_id)
         
         if is_live:
-            async for chunk in self._handle_live_stream(video_id, start_time):
-                yield chunk
+            pass
         else:
             async for chunk in self._handle_vod(video_id):
                 yield chunk
@@ -61,51 +60,6 @@ class YouTubeAudioProcessor:
         """Check if video is live or VOD"""
         metadata = await self._get_video_metadata(video_id)
         return metadata.get("is_live", False)
-
-    async def _handle_live_stream(self, video_id: str, join_time) -> AsyncGenerator[AudioSegment, None]:
-        """Enhanced live stream handling with dynamic manifest updates"""
-        
-        last_segment = None
-        downloaded_segments = set()
-
-        while True:
-            try:
-                manifest_url = await self._get_live_manifest(video_id)
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(manifest_url) as response:
-                        playlist = M3U8(await response.text())
-                
-                audio_playlist = next(p for p in playlist.playlists if p.stream_info.audio)
-                segments = self._filter_segments(audio_playlist, join_time, last_segment)
-                
-                async for chunk in self._process_segments(segments, downloaded_segments):
-                    yield chunk
-                    last_segment = chunk
-
-                await asyncio.sleep(self.live_refresh_interval)
-
-            except Exception as e:
-                logger.error(f"Live stream error: {str(e)}")
-                await self._handle_retry("live_stream")
-
-    async def _get_live_manifest(self, video_id: str) -> str:
-        """Proper manifest URL extraction using yt-dlp"""
-        ydl_opts = {
-            "quiet": True,
-            "extract_flat": True,
-            "format": "bestaudio",
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"https://youtu.be/{video_id}", download=False)
-            if not info.get('is_live'):
-                raise ValueError("Video is not live")
-            
-            for fmt in info.get('formats', []):
-                if fmt.get('protocol') == 'm3u8' and fmt.get('audio_ext') != 'none':
-                    return fmt['url']
-            
-            raise RuntimeError("No valid HLS audio manifest found")
 
     def _filter_segments(self, playlist, join_time, last_segment) -> list:
         """Time-aware segment filtering with expiration check"""
