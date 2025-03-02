@@ -101,6 +101,7 @@ async def stream_transcript(video_id: str):
                 print(f"\nChunk {chunk_count} transcript:")
                 yield transcript
                 chunk_count += 1
+                await asyncio.sleep(0.05)
         
         async def _process_chunk(audio_chunk: AudioSegment, chunk_id: int) -> List[Dict]:
             """Process a single audio chunk and return the transcript"""
