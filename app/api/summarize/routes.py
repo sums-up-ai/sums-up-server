@@ -9,6 +9,7 @@ from app.services.models import get_model_and_tokenizer, get_request_semaphore
 import logging
 from pydub import AudioSegment
 from typing import Dict, List
+import os
 
 
 
@@ -81,8 +82,13 @@ async def stream_summary(
 async def stream_transcript(video_id: str):
 
     try:
+
+        current_script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
+        credentials_path = os.path.join(project_root, 'credentials', 'sums-up-server-452408-24ff39a211a6.json')
+
         audio_processor = YouTubeAudioProcessor()
-        transcriber = SinhalaTranscriber(api_key='C:\\Users\\Janithpm\\Desktop\\sums-up-server\\credentials\\sums-up-server-452408-24ff39a211a6.json')
+        transcriber = SinhalaTranscriber(api_key=credentials_path)
         chunk_count = 0
 
         async def process_video(video_id: str, start_time=None, chunk_count=0):
