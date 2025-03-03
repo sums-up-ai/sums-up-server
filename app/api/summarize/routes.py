@@ -2,7 +2,7 @@ import asyncio
 import torch
 from fastapi import APIRouter, HTTPException, Depends, status
 from sse_starlette.sse import EventSourceResponse
-from app.api.summarize import SummarizeRequest, generate_summary, generate_trascript
+from app.api.summarize import SummarizeRequest, generate_summary, generate_trascript, generate_transcript_and_summary
 from app.services.models import get_model_and_tokenizer, get_request_semaphore
 import logging
 from pydub import AudioSegment
@@ -103,3 +103,56 @@ async def stream_transcript(video_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during summarization: {str(e)}",
         )
+    
+
+@summarize_router.post("/transcribe-and-summarize/stream/{video_id}")
+async def stream_transcript_and_summary(
+    video_id: str,
+    min_length: int = 50,
+    max_length: int = 150,
+    start_time = None,
+    model_resources=Depends(get_model_and_tokenizer),
+    semaphore=Depends(get_request_semaphore),
+):
+    model, tokenizer = model_resources
+
+    async with semaphore:
+        try:
+            generator = generate_transcript_and_summary(
+                video_id=video_id,
+                model=model,
+                tokenizer=tokenizer,
+                min_length=min_length,
+                max_length=max_length,
+                start_time=start_time
+            )
+
+            async def format_stream():
+                async for event in generator:
+                    event_type = event["type"]
+                    content = event["content"]
+                    yield f"event: {event_type}\ndata: {content}\n\n"
+                yield f"event: done\ndata: [DONE]\n\n"
+
+            return EventSourceResponse(
+                format_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+
+        except torch.cuda.OutOfMemoryError:
+            raise HTTPException(
+                status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+                detail="Server resources overloaded. Please try again later.",
+            )
+
+        except Exception as e:
+            print(e)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"An error occurred during processing: {str(e)}",
+            )
