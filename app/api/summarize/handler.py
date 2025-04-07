@@ -96,7 +96,7 @@ async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_l
         transcript_buffer += " " + current_transcript[0]['text'] # type: ignore
         chunk_counter += 1
         
-        yield {"type": "transcript", "count": chunk_counter, "content": current_transcript[0]['text']} # type: ignore
+        # yield {"type": "transcript", "count": chunk_counter, "content": current_transcript[0]['text']} # type: ignore
         
         if chunk_counter >= chunks_before_summary:
             chunk_counter = 0

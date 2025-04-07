@@ -5,6 +5,8 @@ __pycache__/
 
 *.so
 
+summ-model
+
 .Python
 build/
 develop-eggs/
