@@ -132,8 +132,9 @@ async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_l
             for token in streamer:
                 if token.strip():
                     yield {"type": "summary", "content": token}
-                    await asyncio.sleep(0.01)  # Small delay
+                    await asyncio.sleep(0.01)
             
             transcript_buffer = ""
+            yield {"type": "summary", "content": "[BREAK]"}
         
         await asyncio.sleep(0.05)
