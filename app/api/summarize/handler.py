@@ -92,11 +92,9 @@ async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_l
     
     async for audio_chunk in audio_processor.process_content(video_id, start_time):
         current_transcript = await transcriber.transcribe_audio(audio_chunk)
-        
-        transcript_buffer += " " + current_transcript[0]['text'] # type: ignore
-        chunk_counter += 1
-        
-        # yield {"type": "transcript", "count": chunk_counter, "content": current_transcript[0]['text']} # type: ignore
+        if(current_transcript is not None and len(current_transcript) > 0):
+            transcript_buffer += " " + current_transcript[0]['text'] # type: ignore
+            chunk_counter += 1
         
         if chunk_counter >= chunks_before_summary:
             chunk_counter = 0
