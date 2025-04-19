@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
-    MODEL_PATH: str = os.getenv("MODEL_PATH", "C:\\Users\\Janithpm\\Desktop\\sums-up-server\\ai\\summ-model")
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "/Users/janith/sums-up/sums-up-server/summ-model")
     
     DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
     
