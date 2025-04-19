@@ -23,3 +23,5 @@ dependencies:
   - google-cloud-speech
   - sse-starlette
   - sentencepiece
+  - pip:
+    - firebase-admin
