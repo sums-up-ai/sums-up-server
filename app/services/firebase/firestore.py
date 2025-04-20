@@ -1,4 +1,4 @@
-from core.firebase import db
+from app.core.firebase import db
 from typing import Dict, List, Any, Optional
 from fastapi import HTTPException, status
 

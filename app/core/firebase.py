@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from typing import Dict, Any
 
-cred = credentials.Certificate(get_project_path("/credentials/firebase-admin-sdk.json"))
+cred = credentials.Certificate(get_project_path("credentials/firebase-admin-sdk.json"))
 firebase_app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
