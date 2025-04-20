@@ -25,3 +25,5 @@ dependencies:
   - sentencepiece
   - pip:
     - firebase-admin
+    - pyrebase4 
+    - fastapi-cloudauth
