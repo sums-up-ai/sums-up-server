@@ -1,6 +1,8 @@
 import asyncio
 import os
 import threading
+from app.core.path_utils import get_project_path
+from app.services.firebase.firestore import Firestore
 import torch
 from transformers import TextIteratorStreamer
 from app.services.transcribe.sinhala_transcriber import SinhalaTranscriber
@@ -9,11 +11,49 @@ from app.core import settings
 import logging
 from pydub import AudioSegment
 import os
+from datetime import datetime, timedelta
 
 
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+summary_sessions = {}
+store = Firestore(collection_name="ext_summarize")
+
+async def create_session_handler(request) -> str:
+    summary_session_data = {
+        "video_id": request.videoId,
+        "title": request.title,
+        "channel_name": request.channelName,
+        "thumbnail": request.thumbnailUrl,
+        "created_at": datetime.now().isoformat(),
+        "status": "processing",
+        "progress": 0.0
+    }
+
+    session_id = await store.create(summary_session_data)
+        
+    summary_sessions[session_id] = {
+        "data": summary_session_data,
+        "expires_at": datetime.now() + timedelta(hours=1)
+    }
+    
+    await store.update(session_id, {"session_id": session_id})
+    return session_id
+
+async def get_session_handler(session_id: str):
+    if(session_id not in summary_sessions):
+        return await store.get_by_id(session_id)
+    else:
+        session_data = summary_sessions[session_id]
+        if datetime.now() > session_data["expires_at"]:
+            del summary_sessions[session_id]
+            return None
+        else:
+            return session_data["data"]
+
+
 
 async def generate_summary(text: str, model, tokenizer, min_length: int, max_length: int):
     
@@ -55,7 +95,9 @@ async def generate_trascript(video_id: str, start_time=None):
     
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
-    credentials_path = os.path.join(project_root, 'credentials', 'sums-up-server-452408-24ff39a211a6.json')
+    credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
+
+    # credentials_path = get_project_path('credentials/gcc.json')
 
     audio_processor = YouTubeAudioProcessor()
     transcriber = SinhalaTranscriber(api_key=credentials_path)
@@ -77,7 +119,13 @@ async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_l
     """
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
-    credentials_path = os.path.join(project_root, 'credentials', 'sums-up-server-452408-24ff39a211a6.json')
+    credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
+
+    # credentials_path = get_project_path('credentials/gcc.json')
+
+    print(f"Credentials path: {credentials_path}")
+    print(get_project_path('credentials/gcc.json'))
+
 
     audio_processor = YouTubeAudioProcessor()
     transcriber = SinhalaTranscriber(api_key=credentials_path)

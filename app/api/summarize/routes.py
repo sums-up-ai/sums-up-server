@@ -1,4 +1,6 @@
 import asyncio
+from app.api.summarize.handler import create_session_handler, get_session_handler
+from app.api.summarize.schemas import SummarizeSessionRequest
 import torch
 from fastapi import APIRouter, HTTPException, Depends, status
 from sse_starlette.sse import EventSourceResponse
@@ -25,6 +27,40 @@ async def token_stream(generator):
             await asyncio.sleep(0.05)
     yield "[DONE]"
 
+@summarize_router.post("/create-session")
+async def create_session(request: SummarizeSessionRequest):
+    try:
+        session_id = await create_session_handler(request)
+        return {"session_id": session_id}
+    
+    except Exception as e:
+        logger.error(f"Error creating session: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create session: {str(e)}"
+        )
+
+@summarize_router.get("/session/{session_id}")
+async def get_session(session_id: str):
+    try:
+        session_data = get_session_handler(session_id)
+        if session_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found or expired."
+            )
+        return session_data
+    except Exception as e:
+        logger.error(f"Error creating session: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create session: {str(e)}"
+        )
+        
+
+@summarize_router.get("/sse-stream/{session_id}")
+async def sse_stream(session_id: str):
+    pass
 
 @summarize_router.post("/summarize/stream")
 async def stream_summary(
