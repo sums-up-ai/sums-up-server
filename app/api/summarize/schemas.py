@@ -10,3 +10,12 @@ class SummarizeSessionRequest(BaseModel):
     title: str
     channelName: str
     thumbnailUrl: str
+
+class SessionData(BaseModel):
+    uid: str
+    videoId: str
+    title: str
+    channelName: str
+    thumbnailUrl: str
+    createdAt: str
+    status: str

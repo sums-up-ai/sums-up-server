@@ -1,4 +1,5 @@
 from app.core.path_utils import get_project_path
+from app.schemas.user import User
 import firebase_admin
 from firebase_admin import credentials, auth, firestore
 from fastapi import Depends, HTTPException, status
@@ -16,7 +17,9 @@ async def verify_token(credentials = Depends(security)):
     try:
         token = credentials.credentials
         decoded_token = auth.verify_id_token(token)
-        return decoded_token
+        # Todo: chnage User type to a correct type        
+        return User(**decoded_token)
+    
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

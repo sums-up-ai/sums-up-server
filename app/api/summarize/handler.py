@@ -1,7 +1,9 @@
 import asyncio
 import os
 import threading
+from app.api.summarize.schemas import SessionData, SummarizeSessionRequest
 from app.core.path_utils import get_project_path
+from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
 import torch
 from transformers import TextIteratorStreamer
@@ -21,19 +23,25 @@ logger = logging.getLogger(__name__)
 summary_sessions = {}
 store = Firestore(collection_name="ext_summarize")
 
-async def create_session_handler(request) -> str:
-    summary_session_data = {
-        "video_id": request.videoId,
-        "title": request.title,
-        "channel_name": request.channelName,
-        "thumbnail": request.thumbnailUrl,
-        "created_at": datetime.now().isoformat(),
-        "status": "processing",
-        "progress": 0.0
-    }
 
-    session_id = await store.create(summary_session_data)
-        
+TEXT_BLOCK = """Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience.""".split()
+
+async def create_session_handler(
+    request: SummarizeSessionRequest,
+    user: User
+) -> str:
+    summary_session_data = SessionData(
+        uid=user.uid,
+        videoId=request.videoId,
+        title=request.title,
+        channelName=request.channelName,
+        thumbnailUrl=request.thumbnailUrl,
+        createdAt=datetime.now().isoformat(),
+        status="processing"
+    )
+
+    session_id = await store.create(summary_session_data.dict())
+
     summary_sessions[session_id] = {
         "data": summary_session_data,
         "expires_at": datetime.now() + timedelta(hours=1)
@@ -42,16 +50,27 @@ async def create_session_handler(request) -> str:
     await store.update(session_id, {"session_id": session_id})
     return session_id
 
-async def get_session_handler(session_id: str):
+async def get_session_handler(session_id: str) -> SessionData:
     if(session_id not in summary_sessions):
-        return await store.get_by_id(session_id)
+        session_data = await store.get_by_id(session_id)
+        return SessionData.model_validate(session_data)
+
     else:
         session_data = summary_sessions[session_id]
         if datetime.now() > session_data["expires_at"]:
             del summary_sessions[session_id]
             return None
         else:
-            return session_data["data"]
+            return SessionData.model_validate(session_data["data"])
+
+async def word_stream_handler(token: str):
+    
+    yield token
+    await asyncio.sleep(0.1)
+
+    for word in TEXT_BLOCK:
+        await asyncio.sleep(0.1)
+        yield word
 
 
 
@@ -90,7 +109,6 @@ async def generate_summary(text: str, model, tokenizer, min_length: int, max_len
     for token in streamer:
         yield token
 
-
 async def generate_trascript(video_id: str, start_time=None):
     
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -110,7 +128,6 @@ async def generate_trascript(video_id: str, start_time=None):
         yield transcript
         
         await asyncio.sleep(0.05)
-
 
 async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_length: int, max_length: int, start_time=None):
     """
