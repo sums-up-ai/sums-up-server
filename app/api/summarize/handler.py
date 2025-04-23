@@ -121,17 +121,6 @@ async def sse_stream_handler(session: SessionData):
         yield f"Error in generation or Streaming: {str(e)}"
 
 
-
-# async def sse_stream_handler(session: SessionData):
-#     yield session.sessionId
-
-#     await asyncio.sleep(0.1)
-
-#     for word in TEXT_BLOCK:
-#         await asyncio.sleep(0.1)
-#         yield word
-
-
 async def word_stream_handler(token: str):
     
     yield token
