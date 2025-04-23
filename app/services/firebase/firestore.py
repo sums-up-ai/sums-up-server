@@ -1,6 +1,7 @@
 from app.core.firebase import db
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from fastapi import HTTPException, status
+from google.cloud.firestore import Query
 
 class Firestore:
     def __init__(self, collection_name: str):
@@ -85,4 +86,31 @@ class Firestore:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to delete document: {str(e)}"
+            )
+        
+
+    async def get_by_field(
+        self,
+        field: str,
+        value: Any,
+        filter_conditions: Optional[List[Tuple[str, str, Any]]] = None,
+        order_by_field: Optional[str] = None,
+        order_direction: str = "ASC"
+    ) -> List[Dict[str, Any]]:
+        try:
+            query = self.collection.where(field, "==", value)
+
+            if filter_conditions:
+                for field_path, op, val in filter_conditions:
+                    query = query.where(field_path, op, val)
+
+            if order_by_field:
+                direction = Query.DESCENDING if order_direction.upper() == "DESC" else Query.ASCENDING
+                query = query.order_by(order_by_field, direction=direction)
+
+            return [{"id": doc.id, **doc.to_dict()} for doc in query.stream()]
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Query failed: {str(e)}"
             )
