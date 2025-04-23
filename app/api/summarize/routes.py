@@ -1,5 +1,5 @@
 import asyncio
-from app.api.summarize.handler import create_session_handler, get_session_handler, word_stream_handler
+from app.api.summarize.handler import create_session_handler, get_session_handler, sse_stream_handler
 from app.api.summarize.schemas import SummarizeSessionRequest
 from app.core.firebase import verify_token
 from app.schemas.user import User
@@ -75,7 +75,7 @@ async def sse_stream(session_id: str):
             )
     
         return EventSourceResponse(
-            word_stream_handler(session_id),
+            sse_stream_handler(session_data),
         )
     
     except Exception as e:

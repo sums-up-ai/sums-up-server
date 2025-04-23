@@ -1,9 +1,12 @@
 import asyncio
+import json
 import os
 import threading
 from app.api.summarize.schemas import SessionData, SummarizeSessionRequest
 from app.core.path_utils import get_project_path
+from app.schemas.session import Status
 from app.schemas.user import User
+from app.services.firebase import firestore
 from app.services.firebase.firestore import Firestore
 import torch
 from transformers import TextIteratorStreamer
@@ -14,6 +17,7 @@ import logging
 from pydub import AudioSegment
 import os
 from datetime import datetime, timedelta
+from google.cloud.firestore_v1 import ArrayUnion
 
 
 logging.basicConfig(level=logging.INFO, 
@@ -24,44 +28,109 @@ summary_sessions = {}
 store = Firestore(collection_name="ext_summarize")
 
 
-TEXT_BLOCK = """Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience.""".split()
+TEXT_BLOCK = """Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]""".split()
 
 async def create_session_handler(
     request: SummarizeSessionRequest,
     user: User
 ) -> str:
-    summary_session_data = SessionData(
-        uid=user.uid,
-        videoId=request.videoId,
-        title=request.title,
-        channelName=request.channelName,
-        thumbnailUrl=request.thumbnailUrl,
-        createdAt=datetime.now().isoformat(),
-        status="processing"
-    )
+    request = {
+        "uid": user.uid,
+        "videoId": request.videoId,
+        "title": request.title,
+        "channelName": request.channelName,
+        "thumbnailUrl": request.thumbnailUrl,
+        "createdAt": datetime.now().isoformat(),
+        "status": Status.sessionCreated,
+    }
 
-    session_id = await store.create(summary_session_data.dict())
+    sessionId = await store.create(request)
+    request["sessionId"] = sessionId
 
-    summary_sessions[session_id] = {
-        "data": summary_session_data,
-        "expires_at": datetime.now() + timedelta(hours=1)
+    summary_sessions[sessionId] = {
+        "data": request,
+        "expiresAt": datetime.now() + timedelta(hours=1)
     }
     
-    await store.update(session_id, {"session_id": session_id})
-    return session_id
+    await store.update(sessionId, {"sessionId": sessionId})
+    return sessionId
 
-async def get_session_handler(session_id: str) -> SessionData:
-    if(session_id not in summary_sessions):
-        session_data = await store.get_by_id(session_id)
+async def get_session_handler(sessionId: str) -> SessionData:
+    if(sessionId not in summary_sessions):
+        session_data = await store.get_by_id(sessionId)
         return SessionData.model_validate(session_data)
 
     else:
-        session_data = summary_sessions[session_id]
-        if datetime.now() > session_data["expires_at"]:
-            del summary_sessions[session_id]
+        session_data = summary_sessions[sessionId]
+        if datetime.now() > session_data["expiresAt"]:
+            del summary_sessions[sessionId]
             return None
         else:
             return SessionData.model_validate(session_data["data"])
+
+async def is_session_available_handler(sessionId: str) -> bool:
+    if(sessionId not in summary_sessions):
+        session_data = await store.get_by_id(sessionId)
+        return session_data is not None
+    else:
+        session_data = summary_sessions[sessionId]
+        if datetime.now() > session_data["expiresAt"]:
+            del summary_sessions[sessionId]
+            return False
+        else:
+            return True
+
+
+async def sse_stream_handler(session: SessionData):
+    try:        
+        await store.update(session.sessionId, {
+            "summary": [],
+            "status": Status.streaming,
+        })
+        
+        token_generator = TEXT_BLOCK
+        
+        token_buffer = []
+
+        for token in token_generator:
+
+            await asyncio.sleep(0.1)
+
+            if(token.strip() == "[BREAK]"):
+                await store.update(session.sessionId, {
+                    "summary": ArrayUnion([" ".join(token_buffer)]),
+                    "updatedAt": datetime.now().isoformat()
+                })
+                token_buffer.clear()
+                continue
+
+            token_buffer.append(token) 
+            yield token
+        
+        await store.update(session.sessionId, {
+            "status": Status.completed,
+            "updatedAt": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Streaming error: {str(e)}")
+        await store.update(session.sessionId, {
+            "status": Status.failed,
+            "error": str(e)
+        })
+        yield f"Error in generation or Streaming: {str(e)}"
+
+
+
+# async def sse_stream_handler(session: SessionData):
+#     yield session.sessionId
+
+#     await asyncio.sleep(0.1)
+
+#     for word in TEXT_BLOCK:
+#         await asyncio.sleep(0.1)
+#         yield word
+
 
 async def word_stream_handler(token: str):
     
@@ -71,8 +140,6 @@ async def word_stream_handler(token: str):
     for word in TEXT_BLOCK:
         await asyncio.sleep(0.1)
         yield word
-
-
 
 async def generate_summary(text: str, model, tokenizer, min_length: int, max_length: int):
     

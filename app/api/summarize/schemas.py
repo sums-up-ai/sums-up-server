@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, Field, conint, constr
 
 class SummarizeRequest(BaseModel):
@@ -12,6 +13,7 @@ class SummarizeSessionRequest(BaseModel):
     thumbnailUrl: str
 
 class SessionData(BaseModel):
+    sessionId: str
     uid: str
     videoId: str
     title: str
