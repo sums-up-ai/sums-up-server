@@ -16,3 +16,6 @@ async def get_history_handler(uid: str):
         order_by_field="createdAt",
         order_direction="DESC"
     )
+
+async def get_history_by_id_handler(sessionId: str):
+    return await store.get_by_id(doc_id=sessionId)

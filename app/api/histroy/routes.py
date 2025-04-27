@@ -1,5 +1,5 @@
 import logging
-from app.api.histroy.handler import get_history_handler
+from app.api.histroy.handler import get_history_by_id_handler, get_history_handler
 from app.core.firebase import verify_token
 from app.schemas.user import User
 from fastapi import APIRouter, HTTPException, Depends, status
@@ -33,4 +33,28 @@ async def get_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get history: {str(e)}"
+        )
+    
+@history_router.get("/{sessionId}")
+async def get_history_by_id(
+    sessionId: str,
+    user: User = Depends(verify_token),
+):
+    try:
+        history = await get_history_by_id_handler(sessionId)
+        if not history:
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={}
+            )
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=history
+        )
+    
+    except Exception as e:
+        logger.error(f"Error getting history by ID: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get history by ID: {str(e)}"
         )
