@@ -166,7 +166,7 @@ async def generate_summary(text: str, model, tokenizer, min_length: int, max_len
         yield token
 
 async def generate_trascript(video_id: str, start_time=None):
-    
+    full_transcript = ""
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
     credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
@@ -181,9 +181,14 @@ async def generate_trascript(video_id: str, start_time=None):
     async for audio_chunk in audio_processor.process_content(video_id, start_time):
 
         transcript = await transcriber.transcribe_audio(audio_chunk)
+        full_transcript += " " + transcript[0]['text'] # type: ignore
         yield transcript
         
         await asyncio.sleep(0.05)
+
+    with open(f'transcript-{video_id}.txt', "w", encoding="utf-8") as f:
+        f.write(full_transcript)
+
 
 async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_length: int, max_length: int, start_time=None):
     """
