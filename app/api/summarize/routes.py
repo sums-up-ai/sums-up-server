@@ -1,8 +1,10 @@
 import asyncio
-from app.api.summarize.handler import create_session_handler, get_session_handler, sse_stream_handler
+from datetime import datetime
+from app.api.summarize.handler import create_session_handler, get_session_handler
 from app.api.summarize.schemas import SummarizeSessionRequest
 from app.core.firebase import verify_token
 from app.schemas.user import User
+from app.services.firebase.firestore import Firestore
 import torch
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
@@ -13,7 +15,9 @@ import logging
 from pydub import AudioSegment
 from typing import Dict, List
 import os
+from google.cloud.firestore_v1 import ArrayUnion
 
+store = Firestore(collection_name="ext_summarize")
 
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -63,28 +67,97 @@ async def get_session(session_id: str):
             detail=f"Failed to create session: {str(e)}"
         )
         
-@summarize_router.get("/sse-stream")
-async def sse_stream(session_id: str):
+# @summarize_router.get("/sse-stream")
+# async def sse_stream(
+#     session_id: str,
+#     model_resources=Depends(get_model_and_tokenizer),
+#     semaphore=Depends(get_request_semaphore),
+# ):
+#     model, tokenizer = model_resources
+#     try:
+#         session_data = await get_session_handler(session_id)
+#         if session_data is None:
+#             raise HTTPException(
+#                 status_code=status.HTTP_404_NOT_FOUND,
+#                 detail="Session not found or expired."
+#             )
     
-    try:
-        session_data = await get_session_handler(session_id)
-        if session_data is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Session not found or expired."
-            )
+#         return (
+#             sse_stream_handler(session_data, model, tokenizer, semaphore),
+#         )
     
-        return EventSourceResponse(
-            sse_stream_handler(session_data),
-        )
-    
-    except Exception as e:
-        logger.error(f"Error creating session: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create session: {str(e)}"
-        )
+#     except Exception as e:
+#         logger.error(f"Error creating session: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Failed to create session: {str(e)}"
+#         )
 
+
+
+@summarize_router.get("/sse-stream")
+async def stream_transcript_and_summary(
+    session_id: str,
+    min_length: int = 50,
+    max_length: int = 150,
+    start_time = None,
+    model_resources=Depends(get_model_and_tokenizer),
+    semaphore=Depends(get_request_semaphore),
+):
+    model, tokenizer = model_resources
+    session_data = await get_session_handler(session_id)
+    if session_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found or expired."
+        )
+    
+    async with semaphore:
+        try:
+            generator = generate_transcript_and_summary(
+                video_id=session_data.videoId,
+                model=model,
+                tokenizer=tokenizer,
+                min_length=min_length,
+                max_length=max_length,
+                start_time=start_time
+            )
+            token_buffer = []
+            async def format_stream():
+                async for event in generator:
+                    content = event["content"]
+                    token_buffer.append(content)
+                    yield content
+                yield "[DONE]"
+                await store.update(session_id, {
+                    "summary": ArrayUnion([" ".join(token_buffer)]),
+                    "updatedAt": datetime.now().isoformat()
+                })
+                token_buffer.clear()
+
+            return EventSourceResponse(
+                format_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+        
+
+        except torch.cuda.OutOfMemoryError:
+            raise HTTPException(
+                status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+                detail="Server resources overloaded. Please try again later.",
+            )
+
+        except Exception as e:
+            print(e)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"An error occurred during processing: {str(e)}",
+            )
 
 # @summarize_router.post("/transcribe-and-summarize/stream/{video_id}")
 # async def stream_transcript_and_summary(

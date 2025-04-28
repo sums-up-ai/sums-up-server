@@ -9,6 +9,7 @@ async def create_feedback_handler(
     feedback: Feedback
 ):
    await store.update(sessionId, {
-       "feedback": feedback.dict()
+       "feedback": feedback.dict(),
+       "isFeedbackGiven": True
    })
    return sessionId

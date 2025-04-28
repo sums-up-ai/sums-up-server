@@ -1,4 +1,5 @@
 import asyncio
+from http.client import HTTPException
 import json
 import os
 import threading
@@ -18,6 +19,7 @@ from pydub import AudioSegment
 import os
 from datetime import datetime, timedelta
 from google.cloud.firestore_v1 import ArrayUnion
+from fastapi import status
 
 
 logging.basicConfig(level=logging.INFO, 
@@ -28,7 +30,7 @@ summary_sessions = {}
 store = Firestore(collection_name="ext_summarize")
 
 
-TEXT_BLOCK = """Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]""".split()
+TEXT_BLOCK = """Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]""".split()
 
 async def create_session_handler(
     request: SummarizeSessionRequest,
@@ -68,57 +70,121 @@ async def get_session_handler(sessionId: str) -> SessionData:
         else:
             return SessionData.model_validate(session_data["data"])
 
-async def is_session_available_handler(sessionId: str) -> bool:
-    if(sessionId not in summary_sessions):
-        session_data = await store.get_by_id(sessionId)
-        return session_data is not None
-    else:
-        session_data = summary_sessions[sessionId]
-        if datetime.now() > session_data["expiresAt"]:
-            del summary_sessions[sessionId]
-            return False
-        else:
-            return True
+# async def is_session_available_handler(sessionId: str) -> bool:
+#     if(sessionId not in summary_sessions):
+#         session_data = await store.get_by_id(sessionId)
+#         return session_data is not None
+#     else:
+#         session_data = summary_sessions[sessionId]
+#         if datetime.now() > session_data["expiresAt"]:
+#             del summary_sessions[sessionId]
+#             return False
+#         else:
+#             return True
 
 
-async def sse_stream_handler(session: SessionData):
-    try:        
-        await store.update(session.sessionId, {
-            "summary": [],
-            "status": Status.streaming,
-        })
+# async def sse_stream_handler(
+#         session: SessionData,
+#         model,
+#         tokenizer,
+#         semaphore: asyncio.Semaphore,
+#     ):
+#     try:        
+#         await store.update(session.sessionId, {
+#             "summary": [],
+#             "status": Status.streaming,
+#         })
+
+#         async with semaphore:
+#             generator = generate_transcript_and_summary(
+#                 video_id=session.videoId,
+#                 model=model,
+#                 tokenizer=tokenizer,
+#                 min_length=50,
+#                 max_length=150,
+#                 start_time=None
+#             )
+
+#             token_buffer = []
+#             async def format_stream():
+#                 async for event in generator:
+#                     evnet_type = event.get("type", "text")
+#                     content = event.get("content", "")
+
+#                     token_buffer.append(content)
+
+#                     if content.strip() == "[BREAK]":
+#                         await store.update(session.sessionId, {
+#                             "summary": ArrayUnion([" ".join(token_buffer)]),
+#                             "updatedAt": datetime.now().isoformat()
+#                         })
+#                         token_buffer.clear()
+#                         continue
+#                     yield f"event: {evnet_type}\ndata: {content}\n\n"
+                
+#                 yield f"event: done\ndata: [DONE]\n\n"
+
+#             await store.update(session.sessionId, {
+#                 "status": Status.completed,
+#                 "updatedAt": datetime.now().isoformat()
+#             })
+
+#             yield format_stream()
+    
+#     except torch.cuda.OutOfMemoryError:
+#         raise HTTPException(
+#             status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+#             detail="Server resources overloaded. Please try again later.",
+#         )
         
-        token_generator = TEXT_BLOCK
+#     except Exception as e:
+#         logger.error(f"Streaming error: {str(e)}")
+#         await store.update(session.sessionId, {
+#             "status": Status.failed,
+#             "error": str(e)
+#         })
+#         yield f"Error in generation or Streaming: {str(e)}"
+
+
+
+# async def sse_stream_handler(session: SessionData):
+#     try:        
+#         await store.update(session.sessionId, {
+#             "summary": [],
+#             "status": Status.streaming,
+#         })
         
-        token_buffer = []
-
-        for token in token_generator:
-
-            await asyncio.sleep(0.1)
-
-            if(token.strip() == "[BREAK]"):
-                await store.update(session.sessionId, {
-                    "summary": ArrayUnion([" ".join(token_buffer)]),
-                    "updatedAt": datetime.now().isoformat()
-                })
-                token_buffer.clear()
-                continue
-
-            token_buffer.append(token) 
-            yield token
+#         token_generator = TEXT_BLOCK
         
-        await store.update(session.sessionId, {
-            "status": Status.completed,
-            "updatedAt": datetime.now().isoformat()
-        })
+#         token_buffer = []
+
+#         for token in token_generator:
+
+#             await asyncio.sleep(0.1)
+
+#             if(token.strip() == "[BREAK]"):
+#                 await store.update(session.sessionId, {
+#                     "summary": ArrayUnion([" ".join(token_buffer)]),
+#                     "updatedAt": datetime.now().isoformat()
+#                 })
+#                 token_buffer.clear()
+#                 continue
+
+#             token_buffer.append(token) 
+#             yield token
         
-    except Exception as e:
-        logger.error(f"Streaming error: {str(e)}")
-        await store.update(session.sessionId, {
-            "status": Status.failed,
-            "error": str(e)
-        })
-        yield f"Error in generation or Streaming: {str(e)}"
+#         await store.update(session.sessionId, {
+#             "status": Status.completed,
+#             "updatedAt": datetime.now().isoformat()
+#         })
+        
+#     except Exception as e:
+#         logger.error(f"Streaming error: {str(e)}")
+#         await store.update(session.sessionId, {
+#             "status": Status.failed,
+#             "error": str(e)
+#         })
+#         yield f"Error in generation or Streaming: {str(e)}"
 
 
 async def word_stream_handler(token: str):
