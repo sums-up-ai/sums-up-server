@@ -112,9 +112,7 @@ async def stream_summary(
     model_resources=Depends(get_model_and_tokenizer),
     semaphore=Depends(get_request_semaphore),
 ):
-
     model, tokenizer = model_resources
-
     if len(request.text) > 5000 or len(request.text) < 100:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -163,7 +161,6 @@ async def stream_summary(
 
 @summarize_router.post("/sse-stream/trascript/{video_id}")
 async def stream_transcript(video_id: str):
-
     try:
         return EventSourceResponse(
             generate_trascript(video_id=video_id),
