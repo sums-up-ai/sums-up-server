@@ -62,7 +62,7 @@ async def get_session(session_id: str):
         )
 
 @summarize_router.get("/sse-stream")
-async def stream_transcript_and_summary(
+async def stream_video_summary(
     session_id: str,
     model_resources=Depends(get_model_and_tokenizer),
     semaphore=Depends(get_request_semaphore),
