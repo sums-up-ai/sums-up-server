@@ -1,13 +1,10 @@
 import asyncio
-from http.client import HTTPException
-import json
 import os
 import threading
 from app.api.summarize.schemas import SessionData, SummarizeSessionRequest
 from app.core.path_utils import get_project_path
 from app.schemas.session import Status
 from app.schemas.user import User
-from app.services.firebase import firestore
 from app.services.firebase.firestore import Firestore
 import torch
 from transformers import TextIteratorStreamer
@@ -15,12 +12,9 @@ from app.services.transcribe.sinhala_transcriber import SinhalaTranscriber
 from app.services.youtube_handler.youtube_handler import YouTubeAudioProcessor
 from app.core import settings
 import logging
-from pydub import AudioSegment
 import os
 from datetime import datetime, timedelta
 from google.cloud.firestore_v1 import ArrayUnion
-from fastapi import status
-
 
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -30,7 +24,11 @@ summary_sessions = {}
 store = Firestore(collection_name="ext_summarize")
 
 
-TEXT_BLOCK = """Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]Server-Sent Events enable real-time communication between servers and clients through a persistent HTTP connection. Unlike WebSockets, SSE is unidirectional - perfect for scenarios where the server needs to push updates without client interaction. [BREAK] This example demonstrates word-by-word streaming with FastAPI and React, simulating ChatGPT's typing effect. Each word appears sequentially, creating a natural reading experience. [BREAK]""".split()
+TEXT_BLOCK = """[START-SUMMARY] දිවයින පුරා ඇද හැළුණු අධික වර්ශාපතනය හමුවේ වාරිමාර්ග දෙපාර්තමේන්තුවට අයත් ප්‍රධාන ජලාශ අතුරින් ජලාශ 24ක් මේ වන විට වාන් දමමින් පවතින බව වාරිමාර්ග දෙපාර්තමේන්තුව පවසයි. [BREAK]
+
+මෙම වාන් දමන ප්‍රධාන ජලාශ අතරින් අම්පාර දිස්ත්‍රික්කයේ ජලාශ 6ක්, හම්බන්තොට දිස්ත්‍රික්කයේ ජලාශ 6ක්, අනුරාධපුර දිස්ත්‍රික්කයේ ප්‍රධාන ජලාශ 4ක්, බදුල්ල, කුරුණෑගල, මොනරාගල, ත්‍රිකුණාමලය දිස්ත්‍රික්කවල ඇති ජලාශවලින් ජලාශ 2 බැගින්ද මුළු ජලාශ 24ක් පවතින බවද එම දෙපාර්තමේන්තුව සඳහන් කළේය. [BREAK]
+
+මෙම ප්‍රධාන ජලාශයන්ට අමතරව මධ්‍යම පරිමාණයේ ජලාශ 16කට අධික ප්‍රමාණයක්ද වාන් දමමින් පවතින බව පැවසූ වාරිමාර්ග දෙපාර්තමේන්තුව සඳහන් කළේ දෙපාර්තමේන්තුව සතුව පවතින ප්‍රධාන සහ මධ්‍යම ප්‍රමාණයේ ජලාශවල ගබඩා කරගත හැකි මුළු ජල ධාරිතාවෙන් 91%කට වැඩි ප්‍රමාණයක් මේ වන විට ගබඩා කර ගත හැකි වී ඇති බවය. [END-SUMMARY] [DONE]""".split()
 
 async def create_session_handler(
     request: SummarizeSessionRequest,
@@ -70,123 +68,6 @@ async def get_session_handler(sessionId: str) -> SessionData:
         else:
             return SessionData.model_validate(session_data["data"])
 
-# async def is_session_available_handler(sessionId: str) -> bool:
-#     if(sessionId not in summary_sessions):
-#         session_data = await store.get_by_id(sessionId)
-#         return session_data is not None
-#     else:
-#         session_data = summary_sessions[sessionId]
-#         if datetime.now() > session_data["expiresAt"]:
-#             del summary_sessions[sessionId]
-#             return False
-#         else:
-#             return True
-
-
-# async def sse_stream_handler(
-#         session: SessionData,
-#         model,
-#         tokenizer,
-#         semaphore: asyncio.Semaphore,
-#     ):
-#     try:        
-#         await store.update(session.sessionId, {
-#             "summary": [],
-#             "status": Status.streaming,
-#         })
-
-#         async with semaphore:
-#             generator = generate_transcript_and_summary(
-#                 video_id=session.videoId,
-#                 model=model,
-#                 tokenizer=tokenizer,
-#                 min_length=50,
-#                 max_length=150,
-#                 start_time=None
-#             )
-
-#             token_buffer = []
-#             async def format_stream():
-#                 async for event in generator:
-#                     evnet_type = event.get("type", "text")
-#                     content = event.get("content", "")
-
-#                     token_buffer.append(content)
-
-#                     if content.strip() == "[BREAK]":
-#                         await store.update(session.sessionId, {
-#                             "summary": ArrayUnion([" ".join(token_buffer)]),
-#                             "updatedAt": datetime.now().isoformat()
-#                         })
-#                         token_buffer.clear()
-#                         continue
-#                     yield f"event: {evnet_type}\ndata: {content}\n\n"
-                
-#                 yield f"event: done\ndata: [DONE]\n\n"
-
-#             await store.update(session.sessionId, {
-#                 "status": Status.completed,
-#                 "updatedAt": datetime.now().isoformat()
-#             })
-
-#             yield format_stream()
-    
-#     except torch.cuda.OutOfMemoryError:
-#         raise HTTPException(
-#             status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
-#             detail="Server resources overloaded. Please try again later.",
-#         )
-        
-#     except Exception as e:
-#         logger.error(f"Streaming error: {str(e)}")
-#         await store.update(session.sessionId, {
-#             "status": Status.failed,
-#             "error": str(e)
-#         })
-#         yield f"Error in generation or Streaming: {str(e)}"
-
-
-
-# async def sse_stream_handler(session: SessionData):
-#     try:        
-#         await store.update(session.sessionId, {
-#             "summary": [],
-#             "status": Status.streaming,
-#         })
-        
-#         token_generator = TEXT_BLOCK
-        
-#         token_buffer = []
-
-#         for token in token_generator:
-
-#             await asyncio.sleep(0.1)
-
-#             if(token.strip() == "[BREAK]"):
-#                 await store.update(session.sessionId, {
-#                     "summary": ArrayUnion([" ".join(token_buffer)]),
-#                     "updatedAt": datetime.now().isoformat()
-#                 })
-#                 token_buffer.clear()
-#                 continue
-
-#             token_buffer.append(token) 
-#             yield token
-        
-#         await store.update(session.sessionId, {
-#             "status": Status.completed,
-#             "updatedAt": datetime.now().isoformat()
-#         })
-        
-#     except Exception as e:
-#         logger.error(f"Streaming error: {str(e)}")
-#         await store.update(session.sessionId, {
-#             "status": Status.failed,
-#             "error": str(e)
-#         })
-#         yield f"Error in generation or Streaming: {str(e)}"
-
-
 async def word_stream_handler(token: str):
     
     yield token
@@ -195,6 +76,89 @@ async def word_stream_handler(token: str):
     for word in TEXT_BLOCK:
         await asyncio.sleep(0.1)
         yield word
+
+async def get_transcript_summary_handler(
+    videoId: str,
+    sessionId: str,
+    model,
+    tokenizer, 
+    semaphore
+):
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
+    credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
+
+    transcripts = []
+    summaryParagraphs = []
+    chunkCounter = 0
+    maxNumOfChunks = 4
+
+    audioProcessor = YouTubeAudioProcessor()
+    transcriber = SinhalaTranscriber(api_key=credentials_path)
+    
+    logger.info(f"Starting to process video: {videoId}")
+    
+    async with semaphore:
+        yield "[START-SUMMARY]"
+        
+        async for audio_chunk in audioProcessor.process_content(videoId, None):
+            transcript_chunk = await transcriber.transcribe_audio(audio_chunk)
+            transcripts.append(transcript_chunk['text'])
+            chunkCounter += 1
+
+            if chunkCounter >= maxNumOfChunks:
+                chunkCounter = 0
+                inputText = " ".join(transcripts).strip()
+                
+                inputs = tokenizer(
+                    f"summarize: {inputText}",
+                    return_tensors="pt",
+                    max_length=1024,
+                    truncation=True,
+                    padding=True,
+                    add_special_tokens=True
+                ).to(settings.DEVICE)
+                
+                streamer = TextIteratorStreamer(
+                    tokenizer,
+                    skip_special_tokens=True,
+                    skip_prompt=True
+                )
+
+                def generate():
+                    with torch.inference_mode():
+                        model.generate(
+                            **inputs,
+                            max_length=50,
+                            min_length=150,
+                            num_beams=1,
+                            do_sample=False,
+                            streamer=streamer,
+                        )
+                
+                threading.Thread(target=generate, daemon=True).start()
+
+                yield "[START-PARAGRAPH]"
+                
+                for token in streamer:
+                    if token.strip():
+                        summaryParagraphs.append(token)
+                        yield token
+                        await asyncio.sleep(0.01)
+                            
+                await store.update(sessionId, {
+                    "summary": ArrayUnion([" ".join(summaryParagraphs)]),
+                    "updatedAt": datetime.now().isoformat()
+                })
+                
+                transcripts.clear()
+                summaryParagraphs.clear()
+                
+                yield "[END-PARAGRAPH]"
+
+            await asyncio.sleep(0.05)
+        
+        yield "[END-SUMMARY]"
 
 async def generate_summary(text: str, model, tokenizer, min_length: int, max_length: int):
     
@@ -255,12 +219,8 @@ async def generate_trascript(video_id: str, start_time=None):
     with open(f'transcript-{video_id}.txt', "w", encoding="utf-8") as f:
         f.write(full_transcript)
 
-
 async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_length: int, max_length: int, start_time=None):
-    """
-    Download audio from YouTube, transcribe it chunk by chunk,
-    and generate summaries after processing multiple chunks.
-    """
+
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
     credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
