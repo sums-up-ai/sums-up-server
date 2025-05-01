@@ -68,16 +68,7 @@ async def get_session_handler(sessionId: str) -> SessionData:
         else:
             return SessionData.model_validate(session_data["data"])
 
-async def word_stream_handler(token: str):
-    
-    yield token
-    await asyncio.sleep(0.1)
-
-    for word in TEXT_BLOCK:
-        await asyncio.sleep(0.1)
-        yield word
-
-async def get_transcript_summary_handler(
+async def get_video_summary_handler(
     videoId: str,
     sessionId: str,
     model,
@@ -218,75 +209,3 @@ async def generate_trascript(video_id: str, start_time=None):
 
     with open(f'transcript-{video_id}.txt', "w", encoding="utf-8") as f:
         f.write(full_transcript)
-
-async def generate_transcript_and_summary(video_id: str, model, tokenizer, min_length: int, max_length: int, start_time=None):
-
-    current_script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
-    credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
-
-    # credentials_path = get_project_path('credentials/gcc.json')
-
-    print(f"Credentials path: {credentials_path}")
-    print(get_project_path('credentials/gcc.json'))
-
-
-    audio_processor = YouTubeAudioProcessor()
-    transcriber = SinhalaTranscriber(api_key=credentials_path)
-
-    logger.info(f"Starting to process video: {video_id}")
-    
-    transcript_buffer = ""
-    
-    chunk_counter = 0
-    
-    chunks_before_summary = 3
-    
-    async for audio_chunk in audio_processor.process_content(video_id, start_time):
-        current_transcript = await transcriber.transcribe_audio(audio_chunk)
-        if(current_transcript is not None and len(current_transcript) > 0):
-            transcript_buffer += " " + current_transcript[0]['text'] # type: ignore
-            chunk_counter += 1
-        
-        if chunk_counter >= chunks_before_summary:
-            chunk_counter = 0
-            
-            processed_text = f"summarize: {transcript_buffer.strip()}"
-            
-            inputs = tokenizer(
-                processed_text,
-                return_tensors="pt",
-                max_length=1024,
-                truncation=True,
-                padding=True,
-                add_special_tokens=True
-            ).to(settings.DEVICE)
-            
-            streamer = TextIteratorStreamer(
-                tokenizer,
-                skip_special_tokens=True,
-                skip_prompt=True
-            )
-            
-            def generate():
-                with torch.inference_mode():
-                    model.generate(
-                        **inputs,
-                        max_length=max_length,
-                        min_length=min_length,
-                        num_beams=1,
-                        do_sample=False,
-                        streamer=streamer,
-                    )
-            
-            threading.Thread(target=generate, daemon=True).start()
-            
-            for token in streamer:
-                if token.strip():
-                    yield {"type": "summary", "content": token}
-                    await asyncio.sleep(0.01)
-            
-            transcript_buffer = ""
-            yield {"type": "summary", "content": "[BREAK]"}
-        
-        await asyncio.sleep(0.05)

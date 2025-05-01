@@ -1,4 +1,4 @@
-from app.api.summarize.handler import create_session_handler, get_session_handler, get_transcript_summary_handler
+from app.api.summarize.handler import create_session_handler, get_session_handler, get_video_summary_handler
 from app.api.summarize.schemas import SummarizeSessionRequest
 from app.core.firebase import verify_token
 from app.schemas.user import User
@@ -77,7 +77,7 @@ async def stream_transcript_and_summary(
             )
 
         return EventSourceResponse(
-            get_transcript_summary_handler(
+            get_video_summary_handler(
                 videoId=session_data.videoId,
                 sessionId=session_id,
                 model=model,
@@ -106,7 +106,7 @@ async def stream_transcript_and_summary(
             detail=f"An error occurred during processing: {str(e)}",
         )
 
-@summarize_router.post("/summarize/stream")
+@summarize_router.post("/sse-stream/summarize")
 async def stream_summary(
     request: SummarizeRequest,
     model_resources=Depends(get_model_and_tokenizer),
@@ -161,7 +161,7 @@ async def stream_summary(
                 detail=f"An error occurred during summarization: {str(e)}",
             )
 
-@summarize_router.post("/trascript/stream/{video_id}")
+@summarize_router.post("/sse-stream/trascript/{video_id}")
 async def stream_transcript(video_id: str):
 
     try:
@@ -188,4 +188,3 @@ async def stream_transcript(video_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during summarization: {str(e)}",
         )
-    
