@@ -1,3 +1,4 @@
+import asyncio
 from app.api.summarize.handler import create_session_handler, get_session_handler, get_video_summary_handler
 from app.api.summarize.schemas import SummarizeSessionRequest
 from app.core.firebase import verify_token
@@ -185,3 +186,24 @@ async def stream_transcript(video_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during summarization: {str(e)}",
         )
+
+@summarize_router.get("/dummy-sse-stream")
+async def dummy_stream():
+    TEXT_BLOCK = """[BEGIN-SUMMARY] [BEGIN-PARAGRAPH] දිවයින පුරා ඇද හැළුණු අධික වර්ශාපතනය හමුවේ වාරිමාර්ග දෙපාර්තමේන්තුවට අයත් ප්‍රධාන ජලාශ අතුරින් ජලාශ 24ක් මේ වන විට වාන් දමමින් පවතින බව වාරිමාර්ග දෙපාර්තමේන්තුව පවසයි. [END-PARAGRAPH] [BEGIN-PARAGRAPH] මෙම වාන් දමන ප්‍රධාන ජලාශ අතරින් අම්පාර දිස්ත්‍රික්කයේ ජලාශ 6ක්, හම්බන්තොට දිස්ත්‍රික්කයේ ජලාශ 6ක්, අනුරාධපුර දිස්ත්‍රික්කයේ ප්‍රධාන ජලාශ 4ක්, බදුල්ල, කුරුණෑගල, මොනරාගල, ත්‍රිකුණාමලය දිස්ත්‍රික්කවල ඇති ජලාශවලින් ජලාශ 2 බැගින්ද මුළු ජලාශ 24ක් පවතින බවද එම දෙපාර්තමේන්තුව සඳහන් කළේය. [END-PARAGRAPH] [BEGIN-PARAGRAPH] මෙම ප්‍රධාන ජලාශයන්ට අමතරව මධ්‍යම පරිමාණයේ ජලාශ 16කට අධික ප්‍රමාණයක්ද වාන් දමමින් පවතින බව පැවසූ වාරිමාර්ග දෙපාර්තමේන්තුව සඳහන් කළේ දෙපාර්තමේන්තුව සතුව පවතින ප්‍රධාන සහ මධ්‍යම ප්‍රමාණයේ ජලාශවල ගබඩා කරගත හැකි මුළු ජල ධාරිතාවෙන් 91%කට වැඩි ප්‍රමාණයක් මේ වන විට ගබඩා කර ගත හැකි වී ඇති බවය. [END-PARAGRAPH] [END-SUMMARY] [DONE]""".split()
+    async def event_generator():
+        for token in TEXT_BLOCK:
+            if token == "[DONE]":
+                break
+            yield token
+            await asyncio.sleep(0.1)
+        
+
+    return EventSourceResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )

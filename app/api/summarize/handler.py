@@ -6,6 +6,7 @@ from app.core.path_utils import get_project_path
 from app.schemas.session import Status
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
+import app.specification.tags as SSE_TAGS
 import torch
 from transformers import TextIteratorStreamer
 from app.services.transcribe.sinhala_transcriber import SinhalaTranscriber
@@ -22,13 +23,6 @@ logger = logging.getLogger(__name__)
 
 summary_sessions = {}
 store = Firestore(collection_name="ext_summarize")
-
-
-TEXT_BLOCK = """[START-SUMMARY] දිවයින පුරා ඇද හැළුණු අධික වර්ශාපතනය හමුවේ වාරිමාර්ග දෙපාර්තමේන්තුවට අයත් ප්‍රධාන ජලාශ අතුරින් ජලාශ 24ක් මේ වන විට වාන් දමමින් පවතින බව වාරිමාර්ග දෙපාර්තමේන්තුව පවසයි. [BREAK]
-
-මෙම වාන් දමන ප්‍රධාන ජලාශ අතරින් අම්පාර දිස්ත්‍රික්කයේ ජලාශ 6ක්, හම්බන්තොට දිස්ත්‍රික්කයේ ජලාශ 6ක්, අනුරාධපුර දිස්ත්‍රික්කයේ ප්‍රධාන ජලාශ 4ක්, බදුල්ල, කුරුණෑගල, මොනරාගල, ත්‍රිකුණාමලය දිස්ත්‍රික්කවල ඇති ජලාශවලින් ජලාශ 2 බැගින්ද මුළු ජලාශ 24ක් පවතින බවද එම දෙපාර්තමේන්තුව සඳහන් කළේය. [BREAK]
-
-මෙම ප්‍රධාන ජලාශයන්ට අමතරව මධ්‍යම පරිමාණයේ ජලාශ 16කට අධික ප්‍රමාණයක්ද වාන් දමමින් පවතින බව පැවසූ වාරිමාර්ග දෙපාර්තමේන්තුව සඳහන් කළේ දෙපාර්තමේන්තුව සතුව පවතින ප්‍රධාන සහ මධ්‍යම ප්‍රමාණයේ ජලාශවල ගබඩා කරගත හැකි මුළු ජල ධාරිතාවෙන් 91%කට වැඩි ප්‍රමාණයක් මේ වන විට ගබඩා කර ගත හැකි වී ඇති බවය. [END-SUMMARY] [DONE]""".split()
 
 async def create_session_handler(
     request: SummarizeSessionRequest,
@@ -90,7 +84,8 @@ async def get_video_summary_handler(
     logger.info(f"Starting to process video: {videoId}")
     
     async with semaphore:
-        yield "[START-SUMMARY]"
+        
+        yield SSE_TAGS.BEGIN_SUMMARY
         
         async for audio_chunk in audioProcessor.process_content(videoId, None):
             transcript_chunk = await transcriber.transcribe_audio(audio_chunk)
@@ -129,7 +124,7 @@ async def get_video_summary_handler(
                 
                 threading.Thread(target=generate, daemon=True).start()
 
-                yield "[START-PARAGRAPH]"
+                yield SSE_TAGS.BEGIN_PARAGRAPH
                 
                 for token in streamer:
                     if token.strip():
@@ -145,11 +140,11 @@ async def get_video_summary_handler(
                 transcripts.clear()
                 summaryParagraphs.clear()
                 
-                yield "[END-PARAGRAPH]"
+                yield SSE_TAGS.END_PARAGRAPH
 
             await asyncio.sleep(0.05)
         
-        yield "[END-SUMMARY]"
+        yield SSE_TAGS.END_SUMMARY
 
 async def generate_summary(text: str, model, tokenizer, min_length: int, max_length: int):
     
