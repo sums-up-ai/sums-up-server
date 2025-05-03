@@ -114,3 +114,35 @@ class Firestore:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Query failed: {str(e)}"
             )
+
+    async def delete_by_field(self, field: str, value: Any) -> Dict[str, Any]:
+        """
+        Delete all documents where `field` == `value`.
+        Returns a summary of deletion.
+        """
+        try:
+            query = self.collection.where(field, "==", value)
+            docs = list(query.stream())
+
+            if not docs:
+                return {"message": f"No documents found with {field} == {value}"}
+
+            batch_size = 500
+            total_deleted = 0
+
+            for i in range(0, len(docs), batch_size):
+                batch = db.batch()
+                batch_docs = docs[i:i+batch_size]
+                for doc in batch_docs:
+                    batch.delete(doc.reference)
+                batch.commit()
+                total_deleted += len(batch_docs)
+
+            return {
+                "message": f"Deleted {total_deleted} documents where {field} == {value}"
+            }
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete documents: {str(e)}"
+            )

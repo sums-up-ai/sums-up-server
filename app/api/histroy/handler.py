@@ -19,3 +19,12 @@ async def get_history_handler(uid: str):
 
 async def get_history_by_id_handler(sessionId: str):
     return await store.get_by_id(doc_id=sessionId)
+
+async def delete_history_by_id_handler(sessionId: str):
+    return await store.delete(doc_id=sessionId)
+
+async def delete_all_history_by_uid_handler(uid: str):
+    return await store.delete_by_field(
+        field="uid",
+        value=uid
+    )
