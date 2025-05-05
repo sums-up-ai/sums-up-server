@@ -1,9 +1,10 @@
 import asyncio
-from app.api.summarize.handler import create_session_handler, get_session_handler, get_video_summary_handler
+from app.api.summarize.handler import create_session_handler, generate_summary_without_category_handler, get_session_handler, get_video_summary_handler
 from app.api.summarize.schemas import SummarizeSessionRequest
 from app.core.firebase import verify_token
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
+from app.services.post_processing.zero_with_char import postprocess_text
 import torch
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
@@ -160,7 +161,7 @@ async def stream_summary(
                 detail=f"An error occurred during summarization: {str(e)}",
             )
 
-@summarize_router.post("/sse-stream/trascript/{video_id}")
+@summarize_router.get("/sse-stream/trascript/{video_id}")
 async def stream_transcript(video_id: str):
     try:
         return EventSourceResponse(
@@ -207,3 +208,39 @@ async def dummy_stream():
             "Access-Control-Allow-Origin": "*",
         }
     )
+
+
+@summarize_router.post("/without-category")
+async def without_category(
+    request: SummarizeRequest,
+    user: User = Depends(verify_token),
+    model_resources=Depends(get_model_and_tokenizer),
+    semaphore=Depends(get_request_semaphore),
+):
+    model, tokenizer = model_resources
+    if len(request.text) > 5000 or len(request.text) < 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text length must be between 100 and 5000 characters.",
+        )
+    
+    try:
+        summary = await generate_summary_without_category_handler(
+            text=request.text,
+            model=model,
+            tokenizer=tokenizer
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "summary": postprocess_text(summary),
+            }
+        )
+            
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during summarization: {str(e)}",
+        )

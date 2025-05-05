@@ -182,7 +182,6 @@ async def generate_summary(text: str, model, tokenizer, min_length: int, max_len
         yield token
 
 async def generate_trascript(video_id: str, start_time=None):
-    full_transcript = ""
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
     credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
@@ -195,12 +194,21 @@ async def generate_trascript(video_id: str, start_time=None):
     logger.info(f"Starting to process video: {video_id}")
     
     async for audio_chunk in audio_processor.process_content(video_id, start_time):
-
         transcript = await transcriber.transcribe_audio(audio_chunk)
-        full_transcript += " " + transcript[0]['text'] # type: ignore
-        yield transcript
+        if isinstance(transcript, list) and len(transcript) > 0:
+            yield transcript[0]['text']
+        else:
+            yield transcript['text']
         
         await asyncio.sleep(0.05)
 
-    with open(f'transcript-{video_id}.txt', "w", encoding="utf-8") as f:
-        f.write(full_transcript)
+
+async def generate_summary_without_category_handler(
+    text: str,
+    model,
+    tokenizer,
+):
+    inputs = tokenizer("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs["input_ids"], max_length=256, min_length=30, length_penalty=2.0, num_beams=4)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True) 
+    return summary     
