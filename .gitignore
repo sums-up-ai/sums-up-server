@@ -85,5 +85,7 @@ cython_debug/
 .ruff_cache/
 
 pyrightconfig.json
-*/**/summ-model/
+*/**/models/
+models/**/*
+models
 /credentials

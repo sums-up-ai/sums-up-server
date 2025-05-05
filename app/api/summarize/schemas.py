@@ -4,6 +4,10 @@ from pydantic import BaseModel, Field, conint, constr
 class SummarizeRequest(BaseModel):
     text: str
 
+class SummarizeWithCategoryRequest(BaseModel):
+    text: str
+    category: str
+    
 class SummarizeSessionRequest(BaseModel):
     videoId: str
     title: str

@@ -19,3 +19,14 @@ def get_model_and_tokenizer():
         model = MT5ForConditionalGeneration.from_pretrained(settings.MODEL_PATH) # type: ignore
 
     return model, tokenizer
+
+def get_with_category_model_and_tokenizer():
+    global model, tokenizer
+
+    if model is None or tokenizer is None:
+        from transformers import MT5ForConditionalGeneration, MT5Tokenizer
+        
+        tokenizer = MT5Tokenizer.from_pretrained(settings.MODEL_PATH_WITH_CATEGORY) # type: ignore
+        model = MT5ForConditionalGeneration.from_pretrained(settings.MODEL_PATH_WITH_CATEGORY) # type: ignore
+
+    return model, tokenizer

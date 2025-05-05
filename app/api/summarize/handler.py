@@ -202,13 +202,23 @@ async def generate_trascript(video_id: str, start_time=None):
         
         await asyncio.sleep(0.05)
 
-
 async def generate_summary_without_category_handler(
     text: str,
     model,
     tokenizer,
 ):
     inputs = tokenizer("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs["input_ids"], max_length=256, min_length=30, length_penalty=2.0, num_beams=4)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True) 
+    return summary     
+
+async def generate_summary_with_category_handler(
+    text: str,
+    category: str,
+    model,
+    tokenizer,
+):
+    inputs = tokenizer("summarize: category: " + category + " text: "+ text, return_tensors="pt", max_length=1024, truncation=True)
     summary_ids = model.generate(inputs["input_ids"], max_length=256, min_length=30, length_penalty=2.0, num_beams=4)
     summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True) 
     return summary     
