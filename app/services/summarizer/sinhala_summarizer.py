@@ -9,18 +9,10 @@ class SinhalaSummarizer:
         self.model = MT5ForConditionalGeneration.from_pretrained(model_path).to(self.device)
         
     async def summarize_transcript(self, 
-                                  transcript_segments: List[Dict], 
-                                  mode: str = "full") -> Dict:
-        """
-        Summarize transcript segments
-        
-        Args:
-            transcript_segments: List of transcript segments with speaker info
-            mode: Summarization mode - 'full', 'guest_only', or 'key_points'
-        """
-        # Filter segments based on mode
+        transcript_segments: List[Dict], 
+        mode: str = "full") -> Dict:
+
         if mode == "guest_only":
-            # Only include segments from guests
             filtered_segments = [
                 segment for segment in transcript_segments
                 if segment["role"].startswith("guest")
@@ -31,7 +23,6 @@ class SinhalaSummarizer:
         if not filtered_segments:
             return {"summary": "No relevant content to summarize."}
             
-        # Combine text by speaker for better context
         speaker_texts = {}
         for segment in filtered_segments:
             speaker = segment["speaker"]
@@ -39,21 +30,13 @@ class SinhalaSummarizer:
                 speaker_texts[speaker] = []
             speaker_texts[speaker].append(segment["text"])
         
-        # Create input text with speaker roles
         input_text = ""
         for speaker, texts in speaker_texts.items():
             role = next((s["role"] for s in filtered_segments if s["speaker"] == speaker), "speaker")
             speaker_text = " ".join(texts)
             input_text += f"{role}: {speaker_text}\n\n"
             
-        # Prepare for MT5
-        # Add a prefix to guide the model
-        if mode == "key_points":
-            prefix = "ප්‍රධාන කරුණු සාරාංශය: "  # "Key points summary: " in Sinhala
-        else:
-            prefix = "සාරාංශය: "  # "Summary: " in Sinhala
-            
-        input_text = prefix + input_text
+        input_text = "summerize: " + input_text
         
         # Tokenize and generate summary
         inputs = self.tokenizer(input_text, return_tensors="pt", max_length=1024, truncation=True)
