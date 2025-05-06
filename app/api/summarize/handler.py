@@ -5,6 +5,7 @@ from app.api.summarize.schemas import SessionData, SummarizeSessionRequest
 from app.schemas.session import Status
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
+from app.services.post_processing.check_token import SINHALA_ZWJ, needs_zwj
 import app.specification.tags as SSE_TAGS
 import torch
 from transformers import TextIteratorStreamer
@@ -126,11 +127,28 @@ async def generate_video_summary_handler(
 
                 yield SSE_TAGS.BEGIN_PARAGRAPH
                 
+                prev_token = None
                 for token in streamer:
-                    if token.strip():
-                        summaryParagraphs.append(token)
-                        yield token
-                        await asyncio.sleep(0.01)
+                    token = token.strip()
+                    if not token:
+                        continue
+                    if prev_token is not None:
+                        if needs_zwj(prev_token, token):
+                            combined = prev_token + SINHALA_ZWJ + token
+                            summaryParagraphs.append(combined)
+                            yield combined
+                            prev_token = None
+                        else:
+                            summaryParagraphs.append(prev_token)
+                            yield prev_token
+                            prev_token = token
+                    else:
+                        prev_token = token
+                    await asyncio.sleep(0.01)
+
+                if prev_token:
+                    summaryParagraphs.append(prev_token)
+                    yield prev_token
                             
                 await store.update(sessionId, {
                     "summary": ArrayUnion([" ".join(summaryParagraphs)]),
