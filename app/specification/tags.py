@@ -13,3 +13,7 @@ END_METADATA = "[END-METADATA]"
 BEGIN_TIMESTAMP = "[BEGIN-TIMESTAMP]"
 END_TIMESTAMP = "[END-TIMESTAMP]"
 
+
+def YIELD_DATA(key, value): 
+    text = f"[BEGIN-DATA] [BEGIN-KEY] {key} [END-KEY] [BEGIN-VALUE] {value} [END-VALUE] [END-DATA]"
+    return text.split()
