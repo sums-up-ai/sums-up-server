@@ -1,9 +1,11 @@
 import asyncio
+from app.api.category.hander import predict_category_handler
 from app.api.summarize.handler import create_session_handler, generate_summary_with_category_handler, generate_summary_without_category_handler, get_session_handler, get_video_summary_handler
 from app.api.summarize.schemas import SummarizeSessionRequest, SummarizeWithCategoryRequest
 from app.core.firebase import verify_token
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
+from app.services.model_dependencies.bert import get_sin_bert_model_and_tokenizer
 from app.services.model_dependencies.mt5 import get_with_category_model_and_tokenizer
 from app.services.post_processing.zero_with_char import postprocess_text
 import torch
@@ -274,6 +276,54 @@ async def without_category(
                 "summary": postprocess_text(summary),
             }
         )
+            
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during summarization: {str(e)}",
+        )
+    
+@summarize_router.post("/with-predicted-category")
+async def with_predicted_category(
+    request: SummarizeRequest,
+    user: User = Depends(verify_token),
+    mt5_model_resources=Depends(get_with_category_model_and_tokenizer),
+    bert_model_resources=Depends(get_sin_bert_model_and_tokenizer),
+    semaphore=Depends(get_request_semaphore),
+):
+    mt5_model, mt5_tokenizer = mt5_model_resources
+    bert_model, bert_tokenizer, bert_config = bert_model_resources
+    
+    if len(request.text) > 5000 or len(request.text) < 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text length must be between 100 and 5000 characters.",
+        )
+    
+    try:
+        async with semaphore:
+            _, predicted_category = await predict_category_handler(
+                    text=request.text,
+                    model=bert_model,
+                    tokenizer=bert_tokenizer,
+                    config=bert_config,
+                )
+            
+            summary = await generate_summary_with_category_handler(
+                text=request.text,
+                category=predicted_category['label'],
+                model=mt5_model,
+                tokenizer=mt5_tokenizer
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "category": predicted_category,
+                    "summary": postprocess_text(summary),
+                }
+            )
             
     except Exception as e:
         print(e)
