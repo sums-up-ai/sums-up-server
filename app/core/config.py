@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     MODEL_PATH: str = os.getenv("MODEL_PATH", "/Users/janith/sums-up/sums-up-server/models/without-category-mt5")
     MODEL_PATH_WITH_CATEGORY: str = os.getenv("MODEL_PATH_WITH_CATEGORY", "/Users/janith/sums-up/sums-up-server/models/with-category-mt5")
+    MODEL_PATH_SIN_BERT: str = os.getenv("MODEL_PATH_SIN_BERT", "/Users/janith/sums-up/sums-up-server/models/sin-bert")
     
     DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
     

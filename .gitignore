@@ -5,8 +5,6 @@ __pycache__/
 
 *.so
 
-summ-model
-
 .Python
 build/
 develop-eggs/
@@ -85,7 +83,5 @@ cython_debug/
 .ruff_cache/
 
 pyrightconfig.json
-*/**/models/
-models/**/*
 models
 /credentials

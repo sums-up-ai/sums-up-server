@@ -4,14 +4,14 @@ from app.api.summarize.schemas import SummarizeSessionRequest, SummarizeWithCate
 from app.core.firebase import verify_token
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
-from app.services.models.mt5 import get_with_category_model_and_tokenizer
+from app.services.model_dependencies.mt5 import get_with_category_model_and_tokenizer
 from app.services.post_processing.zero_with_char import postprocess_text
 import torch
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 from app.api.summarize import SummarizeRequest, generate_summary, generate_trascript
-from app.services.models import get_model_and_tokenizer, get_request_semaphore
+from app.services.model_dependencies import get_model_and_tokenizer, get_request_semaphore
 import logging
 
 store = Firestore(collection_name="ext_summarize")
