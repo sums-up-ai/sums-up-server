@@ -1,6 +1,6 @@
 import asyncio
 from app.api.category.hander import predict_category_handler
-from app.api.summarize.handler import create_session_handler, generate_summary_with_category_handler, generate_summary_without_category_handler, get_session_handler, get_video_summary_handler
+from app.api.summarize.handler import create_session_handler, generate_summary_with_category_handler, generate_summary_without_category_handler, generate_trascript_hander, generate_video_summary_handler, get_session_handler
 from app.api.summarize.schemas import SummarizeSessionRequest, SummarizeWithCategoryRequest
 from app.core.firebase import verify_token
 from app.schemas.user import User
@@ -12,7 +12,7 @@ import torch
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
-from app.api.summarize import SummarizeRequest, generate_summary, generate_trascript
+from app.api.summarize import SummarizeRequest
 from app.services.model_dependencies import get_model_and_tokenizer, get_request_semaphore
 import logging
 
@@ -66,7 +66,8 @@ async def get_session(session_id: str):
             detail=f"Failed to create session: {str(e)}"
         )
 
-@summarize_router.get("/sse-stream")
+
+@summarize_router.get("/sse-stream/summarize")
 async def stream_video_summary(
     session_id: str,
     model_resources=Depends(get_model_and_tokenizer),
@@ -82,7 +83,7 @@ async def stream_video_summary(
             )
 
         return EventSourceResponse(
-            get_video_summary_handler(
+            generate_video_summary_handler(
                 videoId=session_data.videoId,
                 sessionId=session_id,
                 model=model,
@@ -111,64 +112,11 @@ async def stream_video_summary(
             detail=f"An error occurred during processing: {str(e)}",
         )
 
-@summarize_router.post("/sse-stream/summarize")
-async def stream_summary(
-    request: SummarizeRequest,
-    model_resources=Depends(get_model_and_tokenizer),
-    semaphore=Depends(get_request_semaphore),
-):
-    model, tokenizer = model_resources
-    if len(request.text) > 5000 or len(request.text) < 100:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Text length must be between 100 and 5000 characters.",
-        )
-
-    async with semaphore:
-        try:
-            generator = generate_summary(
-                text=request.text,
-                model=model,
-                tokenizer=tokenizer,
-                min_length=request.min_length,
-                max_length=request.max_length,
-            )
-
-            def token_stream(generator):
-                for token in generator:
-                    if token == "[DONE]":
-                        break
-                    yield token
-
-            return EventSourceResponse(
-                token_stream(generator),
-                media_type="text/event-stream",
-
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "Access-Control-Allow-Origin": "*",
-                }
-            )
-
-        except torch.cuda.OutOfMemoryError:
-            raise HTTPException(
-                status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
-                detail="Server resources overloaded. Please try again later.",
-            )
-
-        except Exception as e:
-            print(e)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"An error occurred during summarization: {str(e)}",
-            )
-
 @summarize_router.get("/sse-stream/trascript/{video_id}")
 async def stream_transcript(video_id: str):
     try:
         return EventSourceResponse(
-            generate_trascript(video_id=video_id),
+            generate_trascript_hander(video_id=video_id),
             media_type="text/event-stream",
 
             headers={

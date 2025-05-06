@@ -2,7 +2,6 @@ import asyncio
 import os
 import threading
 from app.api.summarize.schemas import SessionData, SummarizeSessionRequest
-from app.core.path_utils import get_project_path
 from app.schemas.session import Status
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
@@ -62,7 +61,8 @@ async def get_session_handler(sessionId: str) -> SessionData:
         else:
             return SessionData.model_validate(session_data["data"])
 
-async def get_video_summary_handler(
+
+async def generate_video_summary_handler(
     videoId: str,
     sessionId: str,
     model,
@@ -146,42 +146,7 @@ async def get_video_summary_handler(
         
         yield SSE_TAGS.END_SUMMARY
 
-async def generate_summary(text: str, model, tokenizer, min_length: int, max_length: int):
-    
-    processed_text = f"summarize: {text.strip()}"
-
-    inputs = tokenizer(
-        processed_text,
-        return_tensors="pt",
-        max_length=1024,
-        truncation=True,
-        padding=True,
-        add_special_tokens=True
-    ).to(settings.DEVICE)
-
-    streamer = TextIteratorStreamer(
-        tokenizer,
-        skip_special_tokens=True,
-        skip_prompt=True
-    )
-
-    def generate():
-        with torch.inference_mode():
-            model.generate(
-                **inputs,
-                max_length=max_length,
-                min_length=min_length,
-                num_beams=1,
-                do_sample=False,
-                streamer=streamer,
-            )
-
-    threading.Thread(target=generate, daemon=True).start()
-
-    for token in streamer:
-        yield token
-
-async def generate_trascript(video_id: str, start_time=None):
+async def generate_trascript_hander(video_id: str, start_time=None):
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_script_dir, '..', '..', '..'))
     credentials_path = os.path.join(project_root, 'credentials', 'gcc.json')
