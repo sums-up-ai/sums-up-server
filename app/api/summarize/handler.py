@@ -204,21 +204,20 @@ async def generate_video_summary_handler(
             prev_token = None
             for token in streamer:
                 token = token.strip()
-                # if not token:
-                #     continue
-                # if prev_token is not None:
-                #     if needs_zwj(prev_token, token):
-                #         combined = prev_token + SINHALA_ZWJ + token
-                #         summaryParagraphs.append(combined)
-                #         yield combined
-                #         prev_token = None
-                #     else:
-                #         summaryParagraphs.append(prev_token)
-                #         yield prev_token
-                #         prev_token = token
-                # else:
-                #     prev_token = token
-                yield token
+                if not token:
+                    continue
+                if prev_token is not None:
+                    if needs_zwj(prev_token, token):
+                        combined = prev_token + SINHALA_ZWJ + token
+                        summaryParagraphs.append(combined)
+                        yield combined
+                        prev_token = None
+                    else:
+                        summaryParagraphs.append(prev_token)
+                        yield prev_token
+                        prev_token = token
+                else:
+                    prev_token = token
                 await asyncio.sleep(0.01)
 
             if prev_token:
