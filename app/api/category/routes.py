@@ -2,6 +2,7 @@ import asyncio
 from app.api.category.hander import predict_category_handler
 from app.api.category.schemas import CategoryPredictionRequest
 from app.core.firebase import verify_token
+from app.core.verfiy_key import verify_dual_auth
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
 from app.services.model_dependencies.bert import get_bert_request_semaphore, get_sin_bert_model_and_tokenizer
@@ -22,7 +23,7 @@ category_router = APIRouter(tags=['category'])
 @category_router.post("/predict")
 async def predict(
     request: CategoryPredictionRequest,
-    user: User = Depends(verify_token),
+    user_or_key = Depends(verify_dual_auth),
     model_resources=Depends(get_sin_bert_model_and_tokenizer),
     semaphore=Depends(get_bert_request_semaphore),
 ):

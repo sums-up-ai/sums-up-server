@@ -3,6 +3,7 @@ from app.api.category.hander import predict_category_handler
 from app.api.summarize.handler import create_session_handler, generate_summary_with_category_handler, generate_summary_without_category_handler, generate_trascript_hander, generate_video_summary_handler, get_session_handler
 from app.api.summarize.schemas import SummarizeSessionRequest, SummarizeWithCategoryRequest
 from app.core.firebase import verify_token
+from app.core.verfiy_key import verify_dual_auth
 from app.schemas.user import User
 from app.services.firebase.firestore import Firestore
 from app.services.model_dependencies.bert import get_sin_bert_model_and_tokenizer
@@ -192,7 +193,7 @@ async def dummy_stream():
 @summarize_router.post("/without-category")
 async def without_category(
     request: SummarizeRequest,
-    user: User = Depends(verify_token),
+    user: User = Depends(verify_dual_auth),
     model_resources=Depends(get_model_and_tokenizer),
     semaphore=Depends(get_request_semaphore),
 ):
@@ -227,7 +228,7 @@ async def without_category(
 @summarize_router.post("/with-category")
 async def without_category(
     request: SummarizeWithCategoryRequest,
-    user: User = Depends(verify_token),
+    user: User = Depends(verify_dual_auth),
     model_resources=Depends(get_with_category_model_and_tokenizer),
     semaphore=Depends(get_request_semaphore),
 ):
@@ -263,7 +264,7 @@ async def without_category(
 @summarize_router.post("/with-predicted-category")
 async def with_predicted_category(
     request: SummarizeRequest,
-    user: User = Depends(verify_token),
+    user: User = Depends(verify_dual_auth),
     mt5_model_resources=Depends(get_with_category_model_and_tokenizer),
     bert_model_resources=Depends(get_sin_bert_model_and_tokenizer),
     semaphore=Depends(get_request_semaphore),
