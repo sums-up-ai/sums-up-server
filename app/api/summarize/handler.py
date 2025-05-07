@@ -77,7 +77,8 @@ async def generate_video_summary_handler(
     transcripts = []
     summaryParagraphs = []
     chunkCounter = 0
-    maxNumOfChunks = 4
+    fromTime = 0
+    maxNumOfChunks = 10
 
     audioProcessor = YouTubeAudioProcessor()
     transcriber = SinhalaTranscriber(api_key=credentials_path)
@@ -94,7 +95,6 @@ async def generate_video_summary_handler(
             chunkCounter += 1
 
             if chunkCounter >= maxNumOfChunks:
-                chunkCounter = 0
                 inputText = " ".join(transcripts).strip()
                 
                 inputs = tokenizer(
@@ -116,8 +116,8 @@ async def generate_video_summary_handler(
                     with torch.inference_mode():
                         model.generate(
                             **inputs,
-                            max_length=50,
-                            min_length=150,
+                            max_length=500,
+                            min_length=50,
                             num_beams=1,
                             do_sample=False,
                             streamer=streamer,
@@ -144,7 +144,7 @@ async def generate_video_summary_handler(
                             prev_token = token
                     else:
                         prev_token = token
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.1)
 
                 if prev_token:
                     summaryParagraphs.append(prev_token)
@@ -154,15 +154,91 @@ async def generate_video_summary_handler(
                     "summary": ArrayUnion([" ".join(summaryParagraphs)]),
                     "updatedAt": datetime.now().isoformat()
                 })
+             
+                yield SSE_TAGS.END_PARAGRAPH
                 
+                yield SSE_TAGS.BEGIN_METADATA
+                for data in SSE_TAGS.YIELD_DATA("from", fromTime * 30):
+                    yield data
+                yield SSE_TAGS.END_METADATA
+                
+                fromTime += chunkCounter
+                chunkCounter = 0
                 transcripts.clear()
                 summaryParagraphs.clear()
-                
-                yield SSE_TAGS.END_PARAGRAPH
 
             await asyncio.sleep(0.05)
         
+        if transcripts:
+            inputText = " ".join(transcripts).strip()
+            inputs = tokenizer(
+                f"summarize: {inputText}",
+                return_tensors="pt",
+                max_length=1024,
+                truncation=True,
+                padding=True,
+                add_special_tokens=True
+            ).to(settings.DEVICE)
+
+            streamer = TextIteratorStreamer(
+                tokenizer,
+                skip_special_tokens=True,
+                skip_prompt=True
+            )
+
+            def generate():
+                with torch.inference_mode():
+                    model.generate(
+                        **inputs,
+                        max_length=500,
+                        min_length=50,
+                        num_beams=1,
+                        do_sample=False,
+                        streamer=streamer,
+                    )
+
+            threading.Thread(target=generate, daemon=True).start()
+
+            yield SSE_TAGS.BEGIN_PARAGRAPH
+
+            prev_token = None
+            for token in streamer:
+                token = token.strip()
+                # if not token:
+                #     continue
+                # if prev_token is not None:
+                #     if needs_zwj(prev_token, token):
+                #         combined = prev_token + SINHALA_ZWJ + token
+                #         summaryParagraphs.append(combined)
+                #         yield combined
+                #         prev_token = None
+                #     else:
+                #         summaryParagraphs.append(prev_token)
+                #         yield prev_token
+                #         prev_token = token
+                # else:
+                #     prev_token = token
+                yield token
+                await asyncio.sleep(0.01)
+
+            if prev_token:
+                summaryParagraphs.append(prev_token)
+                yield prev_token
+
+            await store.update(sessionId, {
+                "summary": ArrayUnion([" ".join(summaryParagraphs)]),
+                "updatedAt": datetime.now().isoformat()
+            })
+
+            yield SSE_TAGS.END_PARAGRAPH
+
+            yield SSE_TAGS.BEGIN_METADATA
+            for data in SSE_TAGS.YIELD_DATA("from", fromTime * 30):
+                yield data
+            yield SSE_TAGS.END_METADATA
+            
         yield SSE_TAGS.END_SUMMARY
+        yield '[DONE] \n\n'
 
 async def generate_trascript_hander(video_id: str, start_time=None):
     current_script_dir = os.path.dirname(os.path.abspath(__file__))

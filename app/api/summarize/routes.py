@@ -141,7 +141,35 @@ async def stream_transcript(video_id: str):
 
 @summarize_router.get("/dummy-sse-stream")
 async def dummy_stream():
-    TEXT_BLOCK = """[BEGIN-SUMMARY] [BEGIN-PARAGRAPH] දිවයින පුරා ඇද හැළුණු අධික වර්ශාපතනය හමුවේ වාරිමාර්ග දෙපාර්තමේන්තුවට අයත් ප්‍රධාන ජලාශ අතුරින් ජලාශ 24ක් මේ වන විට වාන් දමමින් පවතින බව වාරිමාර්ග දෙපාර්තමේන්තුව පවසයි. [END-PARAGRAPH] [BEGIN-PARAGRAPH] මෙම වාන් දමන ප්‍රධාන ජලාශ අතරින් අම්පාර දිස්ත්‍රික්කයේ ජලාශ 6ක්, හම්බන්තොට දිස්ත්‍රික්කයේ ජලාශ 6ක්, අනුරාධපුර දිස්ත්‍රික්කයේ ප්‍රධාන ජලාශ 4ක්, බදුල්ල, කුරුණෑගල, මොනරාගල, ත්‍රිකුණාමලය දිස්ත්‍රික්කවල ඇති ජලාශවලින් ජලාශ 2 බැගින්ද මුළු ජලාශ 24ක් පවතින බවද එම දෙපාර්තමේන්තුව සඳහන් කළේය. [END-PARAGRAPH] [BEGIN-PARAGRAPH] මෙම ප්‍රධාන ජලාශයන්ට අමතරව මධ්‍යම පරිමාණයේ ජලාශ 16කට අධික ප්‍රමාණයක්ද වාන් දමමින් පවතින බව පැවසූ වාරිමාර්ග දෙපාර්තමේන්තුව සඳහන් කළේ දෙපාර්තමේන්තුව සතුව පවතින ප්‍රධාන සහ මධ්‍යම ප්‍රමාණයේ ජලාශවල ගබඩා කරගත හැකි මුළු ජල ධාරිතාවෙන් 91%කට වැඩි ප්‍රමාණයක් මේ වන විට ගබඩා කර ගත හැකි වී ඇති බවය. [END-PARAGRAPH] [END-SUMMARY] [DONE]""".split()
+    TEXT_BLOCK = """
+[BEGIN-SUMMARY] 
+[BEGIN-PARAGRAPH] රට දෙකකට බෙදෙනවා කියලා නෑනෙ අපි දැන් ලංකාවට ආපු සියලුම ජාත්‍යන්තර ගවේෂකයෝ කියපු කතාවක් තමයි මම ඊට පස්සේ හැද [END-PARAGRAPH] [BEGIN-METADATA] 
+[BEGIN-DATA] [BEGIN-KEY] time_stamp_idx [END-KEY] [BEGIN-VALUE] 0 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] from [END-KEY] [BEGIN-VALUE] 10 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] to [END-KEY] [BEGIN-VALUE] 100 [END-VALUE] [END-DATA] 
+[END-METADATA] 
+[BEGIN-PARAGRAPH] උඩහමුල්ල ප්‍රශ්නය විසඳලා හල්මිල්ල හාට් එනවා මොකද්ද එකේ නම මට මතක නෑ එතන පල්ලෙහාට වෙනවා මොන කුමාරි ද කියලා තැනකට එන්න විදි [END-PARAGRAPH] 
+[BEGIN-METADATA] 
+[BEGIN-DATA] [BEGIN-KEY] time_stamp_idx [END-KEY] [BEGIN-VALUE] 1 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] from [END-KEY] [BEGIN-VALUE] 100 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] to [END-KEY] [BEGIN-VALUE] 120 [END-VALUE] [END-DATA] 
+[END-METADATA] 
+[BEGIN-PARAGRAPH] දැන් අපි eastern coast එකේ ටිකක් වගේම මීට පෙර මම ගත්තා පෝස්ට් එකක් නෑ කියලා.com එකට වෙන්නේ ස්වාභාවික හබ් එකකින් හෝ [END-PARAGRAPH] 
+[BEGIN-METADATA]
+[BEGIN-DATA] [BEGIN-KEY] time_stamp_idx [END-KEY] [BEGIN-VALUE] 2 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] from [END-KEY] [BEGIN-VALUE] 120 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] to [END-KEY] [BEGIN-VALUE] 200 [END-VALUE] [END-DATA] 
+[END-METADATA] 
+[BEGIN-PARAGRAPH] ඉන්දියා ඊශ්‍රායල් හිතන්නේ මේ බොරුවට රටද වෙනුවෙන් දෙකට බෙදෙනවා කියලා නිහාරා හැදුවා ඉන්පස්සෙ හෙල වෙන්නවත් අරගෙන එන්න බෑනේ අපි හිතන්න ඕන [END-PARAGRAPH] 
+[BEGIN-METADATA]
+[BEGIN-DATA] [BEGIN-KEY] time_stamp_idx [END-KEY] [BEGIN-VALUE] 3 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] from [END-KEY] [BEGIN-VALUE] 200 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] to [END-KEY] [BEGIN-VALUE] 300 [END-VALUE] [END-DATA]  
+[BEGIN-DATA] [BEGIN-KEY] uid [END-KEY] [BEGIN-VALUE] abcd1234 [END-VALUE] [END-DATA] 
+[BEGIN-DATA] [BEGIN-KEY] name [END-KEY] [BEGIN-VALUE] Janith Madarasinghe [END-VALUE] [END-DATA] 
+[END-METADATA] 
+[END-SUMMARY] 
+[DONE]""".split()
     async def event_generator():
         for token in TEXT_BLOCK:
             if token == "[DONE]":

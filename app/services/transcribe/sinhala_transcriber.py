@@ -52,7 +52,10 @@ class SinhalaTranscriber:
                     })
                         
         merged_segments = self._merge_words_to_sentences(transcribed_segments)
-        return merged_segments[0]
+        if not merged_segments:
+            return {"start": 0, "end": 0, "text": ""}
+        else:
+            return merged_segments[0]
     
     
     def _merge_words_to_sentences(self, word_segments: List[Dict]) -> List[Dict]:
